@@ -1,0 +1,1066 @@
+---
+title: "R Code for _Visualizing Baseball_"
+author: Jim Albert
+date:  February, 2024
+format: 
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: TRUE
+editor: visual
+---
+
+# Gentle Introduction to ggplot2
+
+## Introduction
+
+`ggplot2` is a R package for graphing data based on the "The Grammar of Graphics" framework introduced by Leland Wilkinson. This package is used to construct all of the graphs for the book _Visualizing Baseball_. The purpose of this document to introduce `ggplot2` for a familiar baseball dataset. In this document, I introduce the basic framework and illustrate the use of `ggplot2` to construct graphs for different types of variables.
+
+## Some Baseball Data
+
+Collect hitting data for all teams in the 2015 baseball season. For each team, I compute its slugging percentage SLG and its on-base percentage OBP.
+
+```{r}
+#| warning: false
+library(dplyr)
+library(Lahman)
+teams2015 <- filter(Teams, yearID == 2015)
+names(teams2015)[18:19] <- c("X2B", "X3B")
+teams2015$SF <- as.numeric(teams2015$SF)
+teams2015$HBP <- as.numeric(teams2015$HBP)
+teams2015 <- mutate(teams2015,
+                    X1B = H - X2B - X3B - HR,
+                    TB = X1B + 2 * X2B + 3 * X3B + 4 * HR,
+                    SLG = TB / AB,
+                    OBP = (H + BB + HBP) / 
+                      (AB + BB + HBP + SF))
+```
+
+
+## Three Basic Components of a ggplot2 Graph
+
+To construct a graph using `ggplot2`, one needs …
+
+- A **data frame** that contains the data that you want to graph.
+
+- **Aesthetics or roles** assigned to particular variables in the data frame.
+
+- A **geometric object** (or geom for short) which is what you are plotting.
+
+For example, suppose we wish to construct a scatterplot of the on-base percentage and the slugging percentages for all teams in the 2015 season.
+
+1. The data frame `teams2015` contains the data and OBP and SLG are the variables of interest.
+
+2. To construct a scatterplot, you need to have a variable on the horizontal axis (x) and a variable on the vertical axis (y). If I want `OBP` to be the horizontal axis variable and `SLG` the vertical axis variable, I would assign the aesthetics `OBP` to x and `SLG` to y.
+
+These two steps are communicated by the command
+
+```{r}
+library(ggplot2)
+ggplot(data=teams2015, aes(x=OBP, y=SLG))
+```
+
+The `ggplot2` function only sets up the axis – it does not plot anything. To construct a scatterplot, we need to add a point geometric object which is the function geom_point. Now we see the scatterplot. There is a clear positive association between a team’s `OBP` and its `SLG`.
+
+```{r}
+ggplot(data=teams2015, aes(x=OBP, y=SLG)) +
+  geom_point()
+```
+
+## Other Aesthetics (color, shape, and size)
+
+There are other roles or aesthetics that you can assign to variables.
+
+For example, the variable `lgID` gives the league (AL or NL). We can assign `lgID` to the color aesthetic – so the points are colored by the league variable. This tells us that the team with the highest `OBP` and highest `SLG` was from the American League.
+
+```{r}
+ggplot(data=teams2015, 
+       aes(x=OBP, y=SLG, color=lgID)) +
+  geom_point()
+```
+
+There are other aesthetics like shape and size.
+
+Here I can use different plotting symbols for each league by assigning `lgID` to the shape aesthetic. Personally, I think the different shapes are harder to distinguish than the different colors.
+
+```{r}
+ggplot(data=teams2015, 
+       aes(x=OBP, y=SLG, shape=lgID)) +
+  geom_point()
+```
+
+The variable `W` is the number of team wins. Here I assign the variable `W` to the size aesthetic. Notice that the team with the highest `OBP` and `SLG` values appeared to win a lot of games in the 2015 season.
+
+```{r}
+ggplot(data=teams2015, 
+       aes(x=OBP, y=SLG, size=W)) +
+  geom_point()
+```
+
+## Facetting
+
+In `ggplot2`, it is easy to break the plot into several panels defined by a categorical variable – these different panels are called facets. Suppose I want to construct panels of scatterplots of `OBP` by `SLG`, where the panels are defined by the league variable.
+
+From this graph, it appears that the AL teams generally had higher `SLG` values than the NL teams.
+
+
+```{r}
+ggplot(data=teams2015, 
+       aes(x=OBP, y=SLG)) +
+  geom_point() +
+  facet_grid(~ lgID)
+```
+
+## Some Plot Geoms
+
+There are many possible geometric objects (geoms) that one can use depending on the number of variables and variable types.
+
+### A Single Numeric Variable
+
+Suppose one wants to construct a histogram of the `OBP`’s for the 30 times. Here the single aesthetic is x and we use geom_histogram. I indicate that we want to apply five bins in the histogram.
+
+```{r}
+ggplot(data=teams2015, aes(x=OBP)) + 
+  geom_histogram(bins=5)
+```
+
+### A Single Categorical Variable
+
+A bar chart is a graph of a single categorical variable that we can produce using the geom_bar geom. This graph confirms that there are 15 teams in each league.
+
+```{r}
+ggplot(data=teams2015, aes(x=lgID)) + geom_bar()
+```
+
+### One Categorical Variable and One Numeric Variable
+
+We said earlier that it appeared that the slugging percentages were greater for teams in the American League. A more direct way to graphically compare the two groups of `SLG` values is by parallel boxplots. Here we assign the x aesthetic to `lgID`, the y aesthetic to `SLG`, and use the `geom_boxplot` geom.
+
+```{r}
+ggplot(data=teams2015, aes(x=lgID, y=SLG)) +
+  geom_boxplot()
+```
+
+Another geom that one can use in this scenario is `geom_jitter` which produces jittered points. The width option controls the width of the horizontal range of the jittering.
+
+```{r}
+ggplot(data=teams2015, aes(x=lgID, y=SLG)) +
+  geom_jitter(width=0.1)
+```
+
+## Modifying the Axes
+
+In `ggplot2`, it is possible to modify all aspects of the graph. I illustrate some basic modificaitons here. I use the `ggtitle` function to add a plot title, and use the ylab and xlab functions to add x and y labels.
+
+```{r}
+ggplot(data=teams2015, aes(x=lgID, y=SLG)) +
+  geom_jitter(width=0.1) +
+  ggtitle("Slugging Percentages in the 2015 Season by League") +
+  xlab("League") + ylab("Slugging Percentage")
+```
+
+
+## Learning More About ggplot2
+
+Hopefully this introduction gets you interested in trying out `ggplot2` for your own graphs. I encourage you to try out some of the `ggplot2` example scripts for the different chapters and then apply `ggplot2` for your own problems.
+
+
+# Chapter 1 - History of Baseball
+
+## History of Home Run Hitting
+
+We load the packages `Lahman`, `dplyr` and `ggplot2`.
+
+```{r}
+library(Lahman)
+library(dplyr)
+library(ggplot2)
+```
+
+### The Data
+
+The `Lahman` package contains season to season data for players and teams from the Sean Lahman database. For this history of home runs graph, want to collect the number of home runs hit (variable `HR`) and number of games played (variable `G`) for all teams for all seasons since 1900.
+
+Here are a few sample rows of our data.
+
+```{r}
+select(sample_n(Teams, 8), yearID, teamID, HR, G)
+```
+
+### Creating the Variables of Interest
+
+I use the `summarize` function to collect the total number of home runs hit and the total number of games played for each season.
+
+```{r}
+S <- summarize(group_by(Teams, yearID),
+               HR = sum(HR),
+               G = sum(G))
+```
+
+I use the `filter` function to select the summary data for only seasons 1900 or later.
+
+```{r}
+S2 <- filter(S, yearID >= 1900)
+```
+
+### Constructing the Graph
+
+Now I can construct the plot. I construct a scatterplot of `yearID` (horizontal) against the number of home runs hit for each team per game (variable `HR / G`). I add a smoothing loess curve to the plot to see the general pattern.
+
+```{r}
+ggplot(S2, aes(yearID, HR / G)) +
+  geom_point() +
+  geom_smooth(method="loess", span=0.3, se=FALSE)
+```
+
+## History of Home Run Leaders
+
+Next suppose we want to graph the leading number of home runs against season for all seasons past 1900.
+
+### The Data
+
+The `Batting` data frame in the `Lahman` package contains the number of home runs hit by each player each season.
+
+### Creating the Variables of Interest
+
+Actually, the `Batting` table contains more than one row for players who play for more than one team in a given season. So the first use the `summarize` function to find the number of home runs for each player each season.
+
+```{r}
+S <- summarize(group_by(Batting, yearID, playerID),
+                 HR=sum(HR, na.rm=TRUE))
+```
+
+Next, for each season, we collect the maximum number of home runs that are hit. Also we select only the rows of the data frame where the season is at least 1900.
+
+```{r}
+S1 <- summarize(group_by(S, yearID),
+                 HR=max(HR, na.rm=TRUE))
+S2 <- filter(S1, yearID >= 1900)
+```
+
+Here are the first few rows of our table.
+
+```{r}
+head(S2)
+```
+
+### Constructing the Graph
+
+Now I can construct the plot. I construct a scatterplot of `yearID` (horizontal) against the maximum number of home runs hit (variable `HR`). I add a smoothing loess curve to the plot to see the general pattern.
+
+```{r}
+ggplot(S2, aes(yearID, HR)) +
+    geom_point() +
+    geom_smooth(method="loess", span=0.3, se=FALSE)
+```
+
+# Chapter 2 - Career Trajectories
+
+## Plotting a Career Trajectory
+
+Here is a function `plot_hr_trajectory()` that will graph a specific player’s home run trajectory. It uses three packages: `Lahman` contains the season-to-season data, `dplyr` helps with data management, `stringr` helps with one string operation, and `ggplot2` does the graphing.
+
+Here is some insight how `plot_hr_trajectory()` works:
+
+-   The input is the player’s full name in quotes.
+
+-   Using the `People` data frame in the `Lahman` package, I find the `playerID` and birth information for that player.
+
+-   From the `Batting` data frame of hitting data, I collect `HR`, `AB` for all seasons of the player’s career.
+
+-   I find the `Age` variable by first finding the player’s birthyear, adjusting the birthyear depending on the birthmonth, and then defining `Age`.
+
+-   I use `ggplot2` to construct a scatterplot and smoothing curve for the home run rate `HR / AB`.
+
+```{r}
+plot_hr_trajectory <- function(playername){
+  require(Lahman)
+  require(dplyr)
+  require(stringr)
+  require(ggplot2)
+  names <- unlist(str_split(playername, " "))
+  info <- filter(People, nameLast==names[2],
+                       nameFirst==names[1])
+
+  bdata <- filter(Batting, playerID==info$playerID)
+  bdata <- mutate(bdata,
+          birthyear = ifelse(info$birthMonth >= 7, 
+                  info$birthYear + 1, info$birthYear),
+          Age = yearID - birthyear)
+
+  ggplot(bdata, aes(yearID, HR / AB)) + 
+    geom_point() +
+    geom_smooth(method="loess", se=FALSE)
+}
+```
+
+## Plotting Two Trajectories
+
+I illustrate using this function for two players. Note that I am saving the `ggplot2` plotting object in a variable. By just typing the variable name, I see the graph.
+
+```{r}
+p1 <- plot_hr_trajectory("Mickey Mantle")
+p1
+```
+
+```{r}
+p2 <- plot_hr_trajectory("Mike Schmidt")
+p2
+```
+
+## Comparing Trajectories
+
+The `ggplot2` object contains the plotting data. So I combine the data from the two earlier plotting objects to construct a graph that compares the two trajectories.
+
+```{r}
+ggplot(rbind(p1$data, p2$data), aes(Age, HR / AB)) +
+  geom_point() +
+  geom_smooth(method="loess", se=FALSE) +
+  facet_wrap(~ playerID, ncol=1)
+```
+
+# Chapter 3 - Runs Expectancy
+
+This chapter illustrates graphing the famous runs expectancy matrix.
+
+First load some required packages.
+
+```{r}
+library(readr)
+library(knitr)
+library(ggplot2)
+```
+
+## The Data
+
+To obtain the runs expectancy matrix, one needs the Retrosheet play-by-play data for a particular season. I have computed the runs expectancies using 2015 season data. I have stored the data into a csv file that we read into R and store in the variable `RR`.
+
+```{r}
+RR <- read_csv("https://bayesball.github.io/VB/data/runs2015.csv")
+```
+
+Use the `kable` function to display the data frame containing the runs expectancies.
+
+```{r}
+kable(RR)
+```
+
+## Graph of the Matrix
+
+Here I am constructing a scatterplot of the `Bases` variable against the mean runs variable `Mean` where the plotting symbol is the `O` variable (number of outs).
+
+```{r}
+ggplot(RR, aes(Bases, Mean, label=O)) +
+    geom_point(size=3) + 
+    geom_label(color="black", size=4,
+               fontface="bold") +
+    ylab("Runs Scored in \n Remainder of Inning") +
+    xlab("Runners on Base") +
+    theme(axis.text = element_text(size=16),
+          axis.title = element_text(size=16))
+```
+
+# Chapter 4 -  Count Effects
+
+Load in a few helpful packages.
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+```
+
+## The Data
+
+Using the Retrosheet play-by-play data for the 2015 season, I found the expected runs in the remainder of the inning for plate appearances that pass through each possible count.  I store these expected runs values in the csv file "count2015a.csv".  
+
+I read this file into R -- variable name of data frame is `d` -- and show the first few lines.
+
+```{r}
+d <- read_csv("https://bayesball.github.io/VB/data/count2015a.csv")
+head(d)
+```
+
+## The Graph
+
+In this graph, the Pitch Number (variable `N.Pitches`) is graphed against the Runs Value (variable `Runs`), using the Count (variable `count`) as the plotting label.
+
+```{r}
+ggplot(d, aes(N.Pitches, Runs, label=count)) +
+  geom_point() +
+  geom_path(data=filter(d, strikes==0),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, strikes==1),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, strikes==2),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, balls==0),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, balls==1),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, balls==2),
+     aes(N.Pitches, Runs), color="blue") +
+  geom_path(data=filter(d, balls==3),
+     aes(N.Pitches, Runs), color="blue") +
+  xlab("Pitch Number") +
+  ylab("Runs Value") +
+  ggtitle("") +
+  geom_hline(yintercept=0, color="black") +
+  geom_label()
+```
+
+## Data
+
+Above we considered the runs value of plate appearances that pass through each possible count. Here we consider the runs values of balls put in play on each possible count.  These runs values are found using 2016 Retrosheet play-by-play data.  The data is saved in the csv file "count2015b.csv".  We read in this data and save in the variable `S`.
+
+```{r}
+S <- read_csv("https://bayesball.github.io/VB/data/count2015b.csv")
+head(S)
+```
+
+## The Graph
+
+In this graph, the Pitch Number (variable `N.Pitches`) is graphed against the Runs Value (variable `Runs`), using the Count (variable `count`) as the plotting label. 
+
+```{r}
+ggplot(S, aes(N.Pitches, Runs, label=count, size=N)) +
+  xlab("Number of Pitch") +
+  ylab("Runs Value") +
+  geom_hline(yintercept=0, color="black") +
+  geom_label()
+```
+
+# Chapter 5 - PITCHf/x Data
+
+
+## The Data
+
+Using the `pitchRX` package, I downloaded all of the pitch data for all games in the 2016 season.  From this large dataset, I collected the data for 2044 pitches thrown by Clayton Kershaw.
+
+Here I read in the pitchFX data and show a few lines.
+
+```{r}
+library(readr)
+CK <- read_csv("https://bayesball.github.io/VB/data/kershaw2016.csv")
+head(CK)
+```
+Here are the variables in the data frame `CK`.
+
+- pitch_type - type of pitch thrown
+- px - horizontal location in zone
+- pz - vertical location in zone
+- des - outcome of pitch
+- start_speed - speed of pitch as it leaves the pitcher's hand
+- event - outcome of the plate appearance
+- stand
+
+Load several packages.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+```
+
+## Pitch Types Thrown
+
+To get an understanding of what pitch types are thrown, we construct a dotplot of the frequencies of the pitch types (variable `pitch_type`).
+
+```{r}
+S_CK <- filter(summarize(group_by(CK, pitch_type),
+                  N=n()),
+            pitch_type %in% c("SL", "FF", "CU", "CH"))
+ggplot(S_CK, aes(pitch_type, N)) +
+  geom_point(size=3, color="blue") +
+  coord_flip() +
+  ggtitle("Frequencies of Pitch Type of Clayton Kershaw") +
+  theme(plot.title = element_text(size = 14,
+                hjust = 0.5))
+```
+
+## Pitch Speeds
+
+These different pitch types are thrown at different speeds.  The following display is a boxplot of the speeds (varialbe `start_speed`) of the four types of pitches thrown by Kershaw.
+
+```{r}
+ggplot(filter(CK, pitch_type %in%
+                c("SL", "FF", "CU", "CH")),
+       aes(pitch_type, start_speed)) +
+  geom_boxplot() + coord_flip() +
+  ggtitle("Pitch Speeds") +
+  theme(plot.title = element_text(size = 14,
+                                  hjust = 0.5)) +
+     ylim(70, 100)
+```
+
+## Pitch Breaks
+
+These pitch types are also distinguished by their movement or break. The variables `pfx_x` and `pfx_z` give the horizontal and vertical break amounts. (The perspective is from the catcher behind the plate.)  The following graph shows the movements for each type of pitch.
+
+```{r}
+CK <- filter(CK, pitch_type %in% c("CU",
+                          "FF", "SL"))
+ggplot(CK,
+  aes(pfx_x, pfx_z, shape=pitch_type)) +
+  geom_point(color="blue", size=2, alpha=0.5) +
+  ggtitle("Pitch Breaks") +
+  theme(plot.title = element_text(size = 14,
+                                  hjust = 0.5)) +
+  xlab("Horizontal Break") + ylab("Vertical Break")
+```
+
+## Pitch Locations
+
+The variables `px` and `pz` give the horizontal and vertical locations of the pitch viewed from the catcher's perspective.  The zone for an average hitter is added to the plots so we can see which pitches are inside and outside of the zone.
+
+```{r}
+topKzone <- 3.5
+botKzone <- 1.6
+inKzone <- -0.85
+outKzone <- 0.85
+kZone <- data.frame(
+  x=c(inKzone, inKzone, outKzone, outKzone, inKzone),
+  y=c(botKzone, topKzone, topKzone, botKzone, botKzone)
+)
+ggplot(CK) +
+  geom_point(data= filter(CK, pitch_type=="CU"),
+             aes(px, pz), shape=1) +
+  geom_point(data= filter(CK, pitch_type=="FF"),
+             aes(px, pz), shape=2) +
+  geom_point(data= filter(CK, pitch_type=="SL"),
+             aes(px, pz), shape=3) +
+  geom_path(aes(x, y), data=kZone, lwd=1, col="blue") +
+  facet_wrap(~ pitch_type, ncol=2) +
+  xlim(-2, 2) + ylim(-0.5, 5) +
+  theme(strip.text = element_text(size = rel(1.5),
+                                  hjust=0.5,
+                                  color = "black")) +
+  ggtitle("Pitch Locations") +
+  theme(plot.title = element_text(size = 14,
+                                  hjust = 0.5))
+```
+
+Two-dimensional contour plots (from fitting a two-dimensional density estimate) are helpful for visualizing the locations of the different types of pitches.
+
+```{r}
+ggplot(CK) +
+  geom_density_2d(aes(px, pz), color="black") +
+  geom_path(aes(x, y), data=kZone, lwd=1, col="blue") +
+  facet_wrap(~ pitch_type, ncol=2) +
+  xlim(-2, 2) + ylim(-0.5, 5) +
+  theme(strip.text = element_text(size = rel(1.5),
+                                  hjust=0.5,
+                                  color = "black")) +
+  ggtitle("Pitch Locations") +
+  theme(plot.title = element_text(size = 14,
+                                  hjust = 0.5))
+```
+
+## Pitch Outcomes
+
+What are the outcomes of these different types of pitches? We use the variable `des` which gives a description of the pitch outcome.
+
+```{r}
+SO <- summarize(group_by(CK, pitch_type, des), N=n())
+SO <- mutate(SO,
+      Outcome=ifelse(str_detect(des, "Foul") == TRUE, "Foul",
+      ifelse(str_detect(des, "Swing") == TRUE |
+               des == "Missed Bunt", "Swing and Miss",
+      ifelse(str_detect(des, "Ball") == TRUE, "Ball",
+      ifelse(str_detect(des, "In play") == TRUE, "In play",
+             des)))))
+SOS <- summarize(group_by(SO, pitch_type, Outcome),
+                 F=sum(N))
+SOS1 <- summarize(group_by(SO, pitch_type),
+                 Total=sum(N))
+inner_join(SOS, SOS1) %>%
+  mutate(Percentage = 100 * F / Total) -> SOS
+ggplot(SOS,
+        aes(Outcome, Percentage)) +
+  geom_point(size=3, color="blue") +
+  coord_flip() + facet_wrap(~ pitch_type, ncol=1) +
+  theme(strip.text = element_text(size = rel(1.5),
+                                  hjust=0.5,
+                                  color = "black"))
+```
+
+## Outcome of a Swing
+
+What if the batter swings at the pitch?  We focus on the frequencies of the three outcomes "Foul", "In play", and "Miss" for each pitch type.
+
+```{r}
+CK <- mutate(CK,
+             Foul = str_detect(des, "Foul"),
+             InPlay = str_detect(des, "In play"),
+             Miss = str_detect(des, "Swing"),
+             Swing = Foul | InPlay | Miss)
+CK_swing <- filter(CK, Swing == TRUE)
+ggplot(CK_swing, aes(px, pz, color=Miss)) +
+  geom_point(alpha=0.75) +
+  facet_wrap(~ pitch_type, ncol=2) +
+  geom_path(aes(x, y), data=kZone, lwd=1, col="black") +
+  facet_wrap(~ pitch_type, ncol=2) +
+  xlim(-2, 2) + ylim(-0.5, 5) +
+  scale_colour_manual(values = c("gray60", "blue")) +
+  theme(strip.text = element_text(size = rel(1.5),
+                                  hjust=0.5,
+                                  color = "black"))
+```
+
+# Chapter 6 - Batted Balls
+
+Load some necessary packages.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(Lahman)
+library(readr)
+```
+
+## The Data
+
+The ESPN home run tracker http://www.hittrackeronline.com/ contains a number of variables for each home run hit during the current season.  I collected this data for five baseball seasons (2012 through 2016) and the csv file homeruns.csv contains data on 24,299 home runs hit during these five seasons.
+
+```{r}
+d <- read_csv("https://bayesball.github.io/VB/data/homeruns.csv")
+head(d)
+```
+
+## (Figure 6.4) distribution of horizontal angle
+
+In the book, I define the horizontal angle which is 180 - Horiz_Angle where `Horiz_Angle` is the definition of the horizontal angle on the website.
+
+Here is a density plot of the collection of horizontal angles.
+
+```{r}
+ggplot(d, aes(180 - Horiz_Angle)) +
+  geom_density() +
+  xlim(30, 180 - 30) +
+  xlab("Horizontal Angle") +
+  ylab("Density") +
+  geom_vline(xintercept=90) +
+  annotate("text", x=40, y=0.015,
+           label="Left\nField", size=6) +
+  annotate("text", x=140, y=0.015,
+           label="Right\nField", size=6)
+```
+
+## (Figure 6.5) relationship of distance and horizontal angle
+
+Here I graph the horizontal angle against the home run distance and add a smoothing curve to show the general pattern.
+
+```{r}
+ggplot(d, aes(180 - Horiz_Angle, True_Dist)) +
+  geom_point(alpha=0.1) + geom_smooth() +
+  ylim(300, 500) + xlim(45, 130) +
+  xlab("Horizontal Angle") +
+  ylab("Distance")
+```
+
+## Relationship of direction and handedness of batter
+
+Here I get information about the batting side of each hitter and merge this information with the main dataset.
+
+```{r}
+Names <- str_split(d$Hitter, ",")
+one_row <- function(j, k)
+  str_trim(Names[[j]][k])
+d$LastName <- sapply(1:24299, one_row, 1)
+d$FirstName <- sapply(1:24299, one_row, 2)
+d2 <- inner_join(d,
+                 select(People, nameLast, nameFirst, bats),
+                 by=c("LastName"="nameLast",
+                      "FirstName"="nameFirst"))
+```
+
+```{r}
+d2$Batting <- ifelse(d2$bats=="R",
+                     "Right-Handed Hitter",
+                     "Left-Handed Hitter")
+```
+
+
+Here I look the right and left batter effects -- show how the distribution of the horizontal angle varies among right and left-handed hitters.
+
+```{r}
+ggplot(filter(d2, bats=="R" | bats=="L"),
+       aes(180 - Horiz_Angle)) +
+  geom_density(size=1.0)  + xlim(45, 130) +
+  xlab("Horizontal Angle") +
+  ylab("Density") +
+  facet_wrap(~ Batting, ncol=1) +
+  theme(strip.text = element_text(face="bold", size=16))
+```
+
+## Ballpark effects
+
+Here I look at the proportion of left-sided hr for all parks
+(Figure 6.7)
+
+```{r}
+S <- summarise(group_by(d2, Ballpark),
+               NL=sum(180 - Horiz_Angle < 90),
+               NR=sum(180 - Horiz_Angle > 90),
+               PL=NL / (NL + NR))
+```
+
+
+```{r}
+ggplot(filter(S, NL + NR > 200), aes(Ballpark, PL)) +
+  geom_point() + coord_flip() +
+  ylab("Proportion of Home Runs to Left") +
+  geom_hline(yintercept = 0.5)
+```
+
+I focus on 12 extreme parks
+
+```{r}
+S200 <- filter(S, NL + NR > 200)
+S200 <- arrange(S200, desc(PL))
+Sextreme <- rbind(slice(S200, 1:8),
+                  slice(S200, 28:31))
+ballparks <- as.character(arrange(Sextreme, PL)$Ballpark)
+d2$Ballpark <- factor(d2$Ballpark,
+                      levels=ballparks)
+```
+
+(Figure 6.8)  This shows the distribution of the horizontal angle for each of these extreme parks.
+
+
+```{r}
+ggplot(filter(d2, bats=="R" | bats=="L",
+              Ballpark %in% Sextreme$Ballpark),
+       aes(180 - Horiz_Angle)) +
+  geom_density() +
+  facet_wrap(~ Ballpark, ncol=4) +
+  geom_vline(xintercept = 90, color="blue") +
+  xlab("Horizontal Angle") + ylab("Density")
+```
+
+# Chapter 7 - Plate Discipline
+
+## Plate Discipline Statistics for Batters
+
+Load several useful packages.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+## The Data
+
+Collect several useful tables from Fangraphs.  The first dataset contains basic hitting statistics and the second dataset has stats related to plate discipline.  We merge the two datasets, creating a single data frame, 146 observations and 33 variables.
+
+```{r}
+d1 <- read_csv("https://bayesball.github.io/VB/data/Dashboard_2016.csv")
+d2 <- read_csv("https://bayesball.github.io/VB/data/Plate_Discipline_2016.csv")
+d <- inner_join(d1, d2, by="playerid")
+vars <- c(14, 25:33)
+d_subset <- d[, vars]
+names(d_subset) <- c("OBP", "O_Swing", "Z_Swing", "Swing",
+                     "O_Contact", "Z_Contact",
+                     "Contact", "Zone",
+                     "F_Strike", "SwStr")
+names(d)[c(14, 25:33)] <- names(d_subset)
+```
+
+## Swing and Contact Rates
+
+Following graph constructs a scatterplot of the swing and contact rates for all hitters with a smoothing curve added.
+
+```{r}
+ggplot(d, aes(Swing, Contact)) +
+  geom_point(size=2) +
+  geom_smooth(se=FALSE) +
+  xlab("Swing Rate") + ylab("Contact Rate")
+```
+
+## Relationship with Strikeout Rate
+
+We divide the players into "high" and "low" strikeout groups.  We use contact and swing rates to predict (by a logistic model) the probability a hitter is in the high strikeout group.  A line is added to the scatterplot -- points above (below) the line are predicted to be in the low (high) K groups.
+
+```{r}
+d$K_Rate <- with(d, ifelse(K > .1875, "HI", "LO"))
+d$y <- ifelse(d$K_Rate=="HI", 1, 0)
+glm(y ~ Contact + Swing, data=d, family=binomial) -> F
+ggplot(d, aes(Swing, Contact, 
+              color=K_Rate)) +
+  geom_point(size=3) +
+  xlab("Swing Rate") + ylab("Contact Rate") +
+  geom_abline(intercept = coef(F)[1] / (-coef(F)[2]),
+              slope = coef(F)[3] / (-coef(F)[2])) +
+  scale_shape(solid = FALSE) +
+  scale_colour_manual(values = c("black", "grey60"))
+```
+
+## Relationship with Walk Rate
+
+We divide the players into "high" and "low" walk groups.  We use contact and swing rates to predict (by a logistic model) the probability a hitter is in the high walk group.  A line is added to the scatterplot -- points to the left (to the right) of the line are predicted to be in the high (low) walk groups.
+
+```{r}
+d$BB_Cat <- with(d, ifelse(BB > .082, "HI", "LO"))
+d$y <- ifelse(d$BB_Cat=="HI", 1, 0)
+glm(y ~ Contact + Swing, data=d, family=binomial) -> F
+ggplot(d, aes(Swing, Contact, 
+              color=BB_Cat)) +
+  xlab("Swing Rate") + ylab("Contact Rate") +
+  geom_point(size=3) +
+  geom_abline(intercept = coef(F)[1] / (-coef(F)[2]),
+              slope = coef(F)[3] / (-coef(F)[2])) +
+  scale_shape(solid = FALSE) +
+  scale_colour_manual(values = c("black", "grey60"))
+```
+
+## Contrasting the top and bottom K hitters
+
+We first identify the players who have the smallest (TOP) and largest (BOTTOM) strikeout rates.
+
+```{r}
+d <- mutate(d,
+            K_Type=ifelse(K < .12, "TOP",
+                  ifelse(K > .25, "BOTTOM", NA)))
+select(filter(d, K_Type == "TOP"),
+       Name.x, Team.x, K)
+select(filter(d, K_Type == "BOTTOM"),
+       Name.x, Team.x, K)
+```
+
+Similarly we identify the players with the largest (TOP) and smallest (BOTTOM) walk rates
+
+```{r}
+d <- mutate(d,
+            BB_Type=ifelse(BB > .13, "TOP",
+                  ifelse(BB < .05, "BOTTOM", NA)))
+select(filter(d, BB_Type == "TOP"),
+       Name.x, Team.x, BB)
+select(filter(d, BB_Type == "BOTTOM"),
+       Name.x, Team.x, BB)
+```
+
+## Comparing Top and Bottom Strikeout Hitters
+
+This scatterplot compares the top and bottom K groups with respect to the contact rates in the zone and outside of the zone.
+
+```{r}
+ggplot(filter(d, K_Type %in% c("TOP", "BOTTOM")),
+        aes(Z_Contact, O_Contact, color=K_Type)) +
+         geom_point(size=3) +
+  scale_shape(solid = FALSE) +
+  scale_colour_manual(values = c("grey50", "black" ))
+```
+
+## Comparing Top and Bottom Walk Hitters
+
+This scatterplot compares the top and bottom BB groups with respect to the swing rates in the zone and outside of the zone.
+
+```{r}
+ggplot(filter(d, BB_Type %in% c("TOP", "BOTTOM")),
+        aes(Z_Swing, O_Swing, color=BB_Type)) +
+         geom_point(size=3) +
+  scale_shape(solid = FALSE) +
+  scale_colour_manual(values = c("grey50", "black" )) 
+```
+
+# Chapter 8 - Probability and Modeling
+
+Load in some necessary packages.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(readr)
+```
+
+## The Data
+
+The FanGraphs page
+http://www.fangraphs.com/plays.aspx?date=2016-11-02&team=Indians&dh=0 provides a play log for Game 7 of the 2016 World Series.  The table on that page was downloaded and stored in a csv file that is read into R.
+
+```{r}
+d <- read_csv("https://bayesball.github.io/VB/data/WSGame7.csv")
+d$Play_Number <- 1:dim(d)[1]
+d$WE  <- as.numeric(str_replace(d$WE, "%", ""))
+head(d)
+```
+
+## Plot of Win Probabilities of a Game
+
+The `WE` column of the data frame gives the win probability as a percentage.  The below plot graphs the win probability against the `Play_Number` variable.  I add additional text indicating the inning of the game.
+
+```{r}
+ggplot(d, aes(Play_Number, WE / 100)) +
+  geom_point(size=2) +
+  geom_line() +
+  ylim(0, 1) +
+  ggtitle("") +
+  ylab("Probability Indians Win") +
+  geom_hline(yintercept = .50, color="blue", size=1.5) +
+  annotate("text", x=cumsum(c(0, 10, 7, 9, 9, 12, 8,
+                              8, 10, 8)) +
+             c(10, 7, 9, 9, 12, 8,
+               8, 10, 8, 14) / 2,
+           y=0.90,
+           label = as.character(1:10), size=5) +
+  annotate("text", x=45, y=0.98, 
+           label="INNING", size=6) +
+  xlab("Play Number")
+```
+
+## Plot of Leverages
+
+The variable `LI` is the leverage of the game situation defined by the score, inning, runners on base and number of outs.  This graph plots the leverage values against the play number.
+
+```{r}
+ggplot(d, aes(Play_Number, LI)) +
+  geom_segment(aes(xend = Play_Number, yend = 0),
+               size = 2, lineend = "butt") +
+  xlab("Play Number") +
+  ylab("Leverage")  +
+  ylim(0, 5.8) +
+  annotate("text", x=cumsum(c(0, 10, 7, 9, 9, 12, 8,
+                              8, 10, 8)) +
+             c(10, 7, 9, 9, 12, 8,
+               8, 10, 8, 14) / 2,
+           y=5,
+           label = as.character(1:10), size=5) +
+  annotate("text", x=45, y=5.5, label="INNING", size=6) 
+```
+
+## Plot of Win Probability Added
+
+The variable `WPA` provides the change in the win probability for each play.  This graph plots `WPA` against the play number.
+
+```{r}
+ggplot(d, aes(Play_Number, WPA)) +
+  geom_segment(aes(xend = Play_Number, yend = 0),
+               size = 2, lineend = "butt") +
+  xlab("Play Number") +
+  ylab("Win Probability Added") +
+  ylim(-0.24, 0.6) +
+  annotate("text", x=cumsum(c(0, 10, 7, 9, 9, 12, 8,
+                              8, 10, 8)) +
+             c(10, 7, 9, 9, 12, 8,
+               8, 10, 8, 14) / 2,
+           y=0.53,
+           label = as.character(1:10), size=5) +
+  annotate("text", x=45, y=0.60, label="INNING", size=6) +
+  annotate('text', x=71, y=0.45, label="Davis\nHR") +
+  annotate('text', x=85, y=0.38, label="Zobrist\n2B") +
+  annotate('text', x=77, y=-0.22, label="Baez\nSO") 
+```
+
+# Chapter 9 - Streakiness and Clutch Play
+
+## Streakiness Graphs
+
+Load the `BayesTestStreak` package (available on Github).  This package will be used to generate the streakiness graphs of this chapter.
+
+Note: One can install the `BayesTestStreak` package by use of the `install_github()` function from the `remotes` package.  (The installation need be done only once.)
+
+```
+remotes::install_github("bayesball/BayesTestStreak")
+```
+
+```{r}
+library(BayesTestStreak)
+library(gridExtra)
+```
+
+By the way, to see the R code, one just types the name of the function.  For example, to see the code for the moving average function, type `moving_average_plot`.
+
+```{r}
+moving_average_plot
+```
+
+## The Data
+
+First I use the `find_id` function in the package to find the Retrosheet ids for these two hitters.
+
+```{r}
+walker_id <- find_id("Neil Walker")
+aoki_id <- find_id("Nori Aoki")
+```
+
+Collect the hit/out sequences for both players.
+
+```{r}
+walker <- streak_data(walker_id, pbp2016, "H", AB=TRUE)
+aoki <- streak_data(aoki_id, pbp2016, "H", AB=TRUE)
+```
+
+## "Rug Plots"
+
+Here are simple lines showing the AB occurrences of all seasons during the season
+
+```{r}
+plot_streak_data(walker) + theme(plot.title = element_text(colour = "blue", size = 18, 
+        hjust = 0.5)) + ggtitle("Walker")
+```
+
+```{r}
+plot_streak_data(aoki) + theme(plot.title = element_text(colour = "blue", size = 18, 
+        hjust = 0.5)) + ggtitle("Aoki")
+```
+
+## Moving average plots
+
+
+```{r}
+walker_s_data <- moving_average(walker, 50)
+moving_average_plot(walker_s_data) +  
+  theme(plot.title = element_text(colour = "blue", 
+                                  size = 18, 
+        hjust = 0.5)) + ggtitle("Walker")
+```
+
+```{r}
+aoki_s_data <- moving_average(aoki, 50)
+moving_average_plot(aoki_s_data) + 
+  theme(plot.title = element_text(colour = "blue", size = 18, 
+        hjust = 0.5)) + ggtitle("Aoki")
+```
+
+For comparison, better to put the two moving average plots on the same scale:
+
+```{r}
+p1 <- moving_average_plot(walker_s_data) + 
+  ylim(.1, .5) +
+  annotate("text", x=200, y=0.45,
+           label="Neil Walker", size=7) +
+  ylab("Moving Average") + xlab("") 
+p2 <- moving_average_plot(aoki_s_data) + 
+  ylim(.1, .5) +
+  annotate("text", x=200, y=0.45,
+           label="Nori Aoki", size=7) +
+  ylab("Moving Average") + xlab("At Bat Number")
+grid.arrange(p1, p2)
+```
+
+## Geometric Plots
+
+```{r}
+sp <- find_spacings(walker)
+geometric_plot(sp) + 
+  theme(plot.title = element_text(colour = "blue", size = 18, 
+        hjust = 0.5)) + ggtitle("Walker")
+```
+
+```{r}
+sp <- find_spacings(aoki)
+geometric_plot(sp) + 
+  theme(plot.title = element_text(colour = "blue", 
+                                  size = 18, 
+        hjust = 0.5)) + ggtitle("Aoki")
+```
+
+
+
+
+
+
+
+
